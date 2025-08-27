@@ -5,12 +5,19 @@ server {
   root /usr/share/nginx/html;
   index index.html;
 
-  location / {
+  # Ensure trailing slash on the home directory path (e.g., /parse -> /parse/)
+  location = ${HOME_DIRECTORY} {
+    return 301 ${HOME_DIRECTORY}/;
+  }
+
+  # Serve SPA under the HOME_DIRECTORY prefix
+  location ${HOME_DIRECTORY}/ {
+    alias /usr/share/nginx/html/;
     try_files $uri $uri/ /index.html;
   }
 
-  # Proxy API requests to the Flask server service
-  location /api/ {
+  # Proxy API requests keeping the prefix so Flask sees it
+  location ${HOME_DIRECTORY}/api/ {
     proxy_pass http://server:5000;
     proxy_http_version 1.1;
     proxy_set_header Host $host;

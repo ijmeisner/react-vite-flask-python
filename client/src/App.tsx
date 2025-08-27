@@ -6,8 +6,13 @@ function App() {
   const [showToast, setShowToast] = useState<boolean>(false)
   const hideTimer = useRef<number | undefined>(undefined)
 
+  // Use HOME_DIRECTORY from Vite env to prefix routes (e.g., '/parse')
+  const homeDir = (import.meta.env.VITE_HOME_DIRECTORY as string | undefined) || ''
+  const prefix = homeDir === '/' ? '' : (homeDir?.replace(/\/$/, '') || '')
+  const apiBase = `${prefix}/api`
+
   useEffect(() => {
-    fetch('/api/hello')
+    fetch(`${apiBase}/hello`)
       .then((res) => (res.ok ? res.json() : Promise.reject(res)))
       .then((data) => setMessage(data.message ?? 'No message'))
       .catch(() => setMessage('API unavailable'))
@@ -15,7 +20,7 @@ function App() {
 
   const handleTestClick = async () => {
     try {
-      const res = await fetch('/api/notify')
+      const res = await fetch(`${apiBase}/notify`)
       if (!res.ok) throw new Error('Request failed')
       const data: { message?: string } = await res.json()
       showToastNow(data.message ?? 'Notification')

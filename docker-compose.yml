@@ -4,14 +4,19 @@ services:
   server:
     build:
       context: ./server
+    environment:
+      - HOME_DIRECTORY=/parse
     ports:
       - "5000:5000"
 
   client:
     build:
       context: ./client
+      args:
+        HOME_DIRECTORY: /parse
     depends_on:
       - server
     ports:
-      - "5173:80"
-
+      - "8084:80"
+    environment:
+      - HOME_DIRECTORY=/parse
