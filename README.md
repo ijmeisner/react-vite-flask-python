@@ -1,5 +1,35 @@
 # react-vite-flask-python
 
+## Azure AD BFF Authentication
+
+This project now includes a Backend-for-Frontend (BFF) flow with Azure AD (Entra ID). The browser only talks to the Flask backend; tokens are never exposed to the client. The backend manages redirects to Azure, handles the callback, stores identity in an HttpOnly session cookie, and exposes a minimal `GET ${HOME_DIRECTORY}/api/me` endpoint for the SPA to detect authentication.
+
+### Configure Azure App Registration
+- Create an app registration in Entra ID.
+- Add a client secret.
+- Add a redirect URI: `https://<your-domain>${HOME_DIRECTORY}/api/auth/callback`
+  - For local reverse-proxy, this should match your public host and prefix.
+
+### Environment variables (server)
+- `AZURE_CLIENT_ID` – App registration client ID
+- `AZURE_TENANT_ID` – Directory (tenant) ID
+- `AZURE_CLIENT_SECRET` – Client secret value
+- `FLASK_SECRET_KEY` – Any random string for session integrity
+- `HOME_DIRECTORY` – URL base prefix, e.g. `/parse` (optional)
+- `SESSION_COOKIE_SECURE` – `true` in HTTPS; `false` in local HTTP
+- `SESSION_COOKIE_SAMESITE` – `Lax` (default) or `None` when cross-site is required
+
+### Client build env
+- `VITE_HOME_DIRECTORY` – Should match `HOME_DIRECTORY` so routes align.
+
+### Endpoints
+- `GET ${HOME_DIRECTORY}/api/login` – Redirects to Azure AD
+- `GET ${HOME_DIRECTORY}/api/auth/callback` – Completes sign-in, sets session, redirects to SPA
+- `GET ${HOME_DIRECTORY}/api/me` – Returns `{ user }` or `401`
+- `GET ${HOME_DIRECTORY}/api/logout` – Clears session (and optionally Azure session)
+
+The SPA shows a login page with a “Sign in with Microsoft” button and gates the home page unless authenticated.
+
 ## Build and Push Docker Images
 
 The project has two images, one for the React client (served by Nginx) and one for the Flask server. The client build embeds a base path using `HOME_DIRECTORY` (for reverse proxy prefixes like `/parse`).

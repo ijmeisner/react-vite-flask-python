@@ -5,7 +5,13 @@ services:
     build:
       context: ./server
     environment:
-      - HOME_DIRECTORY=/parse
+      - HOME_DIRECTORY=${HOME_DIRECTORY:-/}
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
+      - SESSION_COOKIE_SAMESITE=${SESSION_COOKIE_SAMESITE:-Lax}
     ports:
       - "5000:5000"
 
@@ -13,10 +19,10 @@ services:
     build:
       context: ./client
       args:
-        HOME_DIRECTORY: /parse
+        HOME_DIRECTORY: ${HOME_DIRECTORY:-/}
     depends_on:
       - server
     ports:
       - "8084:80"
     environment:
-      - HOME_DIRECTORY=/parse
+      - HOME_DIRECTORY=${HOME_DIRECTORY:-/}
