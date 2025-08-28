@@ -1,5 +1,29 @@
 # react-vite-flask-python
 
+## Architecture Overview
+
+- **Client (React + Vite):** Static SPA built with Vite. Nginx serves the built assets under a configurable base path (`HOME_DIRECTORY`) and proxies API/auth requests to the Flask server.
+- **Web Server (Nginx):** Serves the SPA and reverse‑proxies these routes to Flask:
+  - `/${HOME_DIRECTORY}/api/*` → Flask API
+  - `/${HOME_DIRECTORY}/azure_login` → Start Azure auth
+  - `/${HOME_DIRECTORY}/authorized` → Azure redirect callback
+  - `/${HOME_DIRECTORY}/logout` → Clear session and return to SPA
+- **Backend (Flask API):** Provides REST endpoints under `/${HOME_DIRECTORY}/api`. Validates either a logged‑in session (cookie) or a Bearer JWT (optional), and exposes health and sample routes.
+- **Authentication (Azure AD via MSAL Python):** Uses the Authorization Code flow on the server. Tokens are cached server‑side via Flask‑Session; the browser only holds a small session cookie. After successful login, users are redirected to the SPA.
+- **Session Store (Flask‑Session):** Defaults to `filesystem` (per‑container). For multi‑instance deployments, use Redis or another shared backend.
+- **Base Path (`HOME_DIRECTORY`):** Single source of truth for SPA base, Nginx routing, and Flask route prefix (e.g., `/parse`).
+- **Containerization (Docker Compose):** Runs `client` (Nginx) and `server` (Flask/gunicorn) on an internal network. Compose defaults let Nginx reach Flask at `server:5000`.
+
+Flow summary
+- **Login:** SPA links to `/${HOME_DIRECTORY}/azure_login` → Nginx proxies to Flask → Microsoft login → Azure redirects to `/${HOME_DIRECTORY}/authorized` → Flask finalizes auth → Flask redirects to SPA (`/${HOME_DIRECTORY}/` or `POST_LOGIN_REDIRECT_PATH`).
+- **API calls:** SPA calls `/${HOME_DIRECTORY}/api/*` with `credentials: 'include'`. Nginx proxies to Flask. Flask authorizes via session or optional Bearer JWT.
+- **Logout:** SPA links to `/${HOME_DIRECTORY}/logout` which clears the session and redirects back to the SPA.
+
+Operational notes
+- **HTTPS:** Ensure the external proxy sets `X-Forwarded-Proto=https` or set `AZURE_REDIRECT_URI` explicitly. The value must match the Azure app’s Redirect URI.
+- **Cookies:** In production set `SESSION_COOKIE_SECURE=true`. Use `SESSION_COOKIE_SAMESITE=None` only if cross‑site embedding is required.
+- **Scaling sessions:** Switch to Redis with `SESSION_TYPE=redis` (and appropriate config) to share sessions across instances.
+
 ## Authentication
 
 The app uses server-side authentication via MSAL for Python. Users authenticate with Azure AD through the Flask backend; sessions are stored in secure cookies. The React client is MSAL-free and relies on the backend session.
@@ -15,6 +39,8 @@ The app uses server-side authentication via MSAL for Python. Users authenticate 
 - `AZURE_CLIENT_SECRET` – Client secret value.
 - `AZURE_AUTH_SCOPES` – Space-separated delegated scopes to request (e.g., `https://graph.microsoft.com/User.Read`).
 - `AZURE_REDIRECT_PATH` – Path part of redirect URI; defaults to `${HOME_DIRECTORY}/authorized`.
+- `AZURE_REDIRECT_URI` – Absolute redirect URI override (scheme/host/path must match Azure).
+- `POST_LOGIN_REDIRECT_PATH` – Absolute path to redirect users to after successful login; defaults to `${HOME_DIRECTORY}/`.
 - `AZURE_ALLOWED_AUDIENCE` – Space-separated accepted audiences for Bearer tokens (optional). Falls back to `AZURE_CLIENT_ID`.
 - `AZURE_JWKS_TTL` – Seconds to cache JWKS/OpenID config (default 300).
 - `FLASK_SECRET_KEY` – Secret for Flask session cookies.
@@ -91,7 +117,7 @@ docker push ${REGISTRY}/${NAMESPACE}/flask-server:${VERSION}
 ### Optional: multi-arch builds with Buildx
 ```
 docker buildx create --use --name multi || true
-docker buildx build \
+docker buildx build --no-cache \
   -f client/Dockerfile \
   --build-arg HOME_DIRECTORY=${HOME_DIRECTORY} \
   --platform linux/amd64,linux/arm64 \
@@ -99,7 +125,7 @@ docker buildx build \
   --push \
   client
 
-docker buildx build \
+docker buildx build --no-cache \
   -f server/Dockerfile \
   --platform linux/amd64,linux/arm64 \
   -t ${REGISTRY}/${NAMESPACE}/flask-server:${VERSION} \

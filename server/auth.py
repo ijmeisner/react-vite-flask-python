@@ -34,6 +34,7 @@ AZURE_TENANT_ID = os.environ.get("AZURE_TENANT_ID", "")
 AZURE_AUTH_SCOPES = os.environ.get("AZURE_AUTH_SCOPES", "https://graph.microsoft.com/User.Read").split()
 AZURE_REDIRECT_PATH = os.environ.get("AZURE_REDIRECT_PATH")  # optional override
 AZURE_REDIRECT_URI = os.environ.get("AZURE_REDIRECT_URI")  # optional absolute override
+POST_LOGIN_REDIRECT_PATH = os.environ.get("POST_LOGIN_REDIRECT_PATH")  # optional absolute path
 
 AZURE_ENABLED = all([AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID])
 
@@ -180,5 +181,7 @@ def authorized():
             }
             log_message(f"User Logged In via Azure: {username}")
 
-    # Redirect to app root health as a default landing
-    return redirect(url_for("health"))
+    # Redirect to SPA after successful login
+    if POST_LOGIN_REDIRECT_PATH:
+        return redirect(POST_LOGIN_REDIRECT_PATH)
+    return redirect(f"{HOME_DIRECTORY or '/'}")
