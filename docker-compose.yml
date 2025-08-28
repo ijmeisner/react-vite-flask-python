@@ -1,29 +1,26 @@
-version: "3.9"
-
 services:
   server:
-    build:
-      context: ./server
+    image: cody00/flask-server:0.1.1
+    container_name: flask-server
     environment:
-      - HOME_DIRECTORY=${HOME_DIRECTORY:-/}
-      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
-      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
-      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
-      - AZURE_REDIRECT_URI=${AZURE_REDIRECT_URI}
-      - AZURE_ALLOWED_AUDIENCE=${AZURE_ALLOWED_AUDIENCE}
-      - AZURE_JWKS_TTL=${AZURE_JWKS_TTL:-300}
-      - APP_LOG_LEVEL=${APP_LOG_LEVEL:-INFO}
-      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-dev-secret-key}
+      - HOME_DIRECTORY=/parse
+      - AZURE_CLIENT_ID=
+      - AZURE_TENANT_ID=
+      - AZURE_CLIENT_SECRET=
+      - AZURE_REDIRECT_URI=
+      - FLASK_SECRET_KEY=1245
+      - SESSION_COOKIE_SECURE=false
+      - SESSION_COOKIE_SAMESITE=Lax
+      - APP_LOG_LEVEL=DEBUG
     ports:
       - "5000:5000"
+
   client:
-    build:
-      context: ./client
-      args:
-        HOME_DIRECTORY: ${HOME_DIRECTORY:-/}
+    image: cody00/react-vite-client:0.1.1
+    container_name: react-vite-client
     depends_on:
       - server
     ports:
       - "8084:80"
     environment:
-      - HOME_DIRECTORY=${HOME_DIRECTORY:-/}
+      - HOME_DIRECTORY=/parse

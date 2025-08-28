@@ -2,53 +2,74 @@ server {
   listen 80;
   server_name _;
 
-  root /usr/share/nginx/html;
+  # Where the built Vite app lives
+  root  /usr/share/nginx/html;
   index index.html;
 
-  # Ensure trailing slash on the home directory path (e.g., /parse -> /parse/)
+  # --- Force trailing slash on /parse (e.g., /parse -> /parse/)
   location = ${HOME_DIRECTORY} {
     return 301 ${HOME_DIRECTORY}/;
   }
 
-  # Serve SPA under the HOME_DIRECTORY prefix
-  location ${HOME_DIRECTORY}/ {
-    alias /usr/share/nginx/html/;
-    try_files $uri $uri/ /index.html;
-  }
-
-  # Proxy backend auth endpoints to Flask
-  location = ${HOME_DIRECTORY}/azure_login {
-    proxy_pass http://server:5000${HOME_DIRECTORY}/azure_login;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-  }
-  location = ${HOME_DIRECTORY}/authorized {
-    proxy_pass http://server:5000${HOME_DIRECTORY}/authorized;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-  }
-  location = ${HOME_DIRECTORY}/logout {
-    proxy_pass http://server:5000${HOME_DIRECTORY}/logout;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-  }
-
-  # Proxy API requests keeping the prefix so Flask sees it
+  # --- API (proxy to Flask service by Docker DNS name "server")
+  # Keep this BEFORE the general SPA block
   location ${HOME_DIRECTORY}/api/ {
+    proxy_pass http://server:5000;      # preserve original URI (/parse/api/...)
+    proxy_http_version 1.1;
+
+    proxy_set_header Host               $host;
+    proxy_set_header X-Real-IP          $remote_addr;
+    proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto  $scheme;
+    proxy_set_header X-Forwarded-Host   $host;
+    proxy_set_header X-Forwarded-Prefix ${HOME_DIRECTORY};
+
+    proxy_buffering off;                # useful for streaming / server-sent events
+    proxy_read_timeout 300s;
+    proxy_send_timeout 300s;
+  }
+
+  # --- Auth endpoints (login/redirect/logout) proxied to Flask
+  location ~ ^${HOME_DIRECTORY}/(azure_login|authorized|logout)$ {
+    proxy_pass http://server:5000$request_uri;
+    proxy_http_version 1.1;
+
+    proxy_set_header Host               $host;
+    proxy_set_header X-Real-IP          $remote_addr;
+    proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto  $scheme;
+    proxy_set_header X-Forwarded-Host   $host;
+    proxy_set_header X-Forwarded-Prefix ${HOME_DIRECTORY};
+  }
+
+  # --- (Optional) WebSockets under the prefix
+  location ${HOME_DIRECTORY}/ws/ {
     proxy_pass http://server:5000;
     proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-    proxy_buffering off;
+
+    proxy_set_header Upgrade            $http_upgrade;
+    proxy_set_header Connection         "upgrade";
+    proxy_set_header X-Forwarded-Proto  $scheme;
+    proxy_set_header X-Forwarded-Host   $host;
+    proxy_set_header X-Forwarded-Prefix ${HOME_DIRECTORY};
   }
 
-  # All non-API routes are served by the SPA (MSAL redirects land here too)
+  # --- Static assets: enable caching for hashed asset files
+  # MUST be above the SPA block
+  location ~ ^${HOME_DIRECTORY}/(?<asset>.+\.(?:js|mjs|css|svg|png|jpg|jpeg|gif|ico|webp|woff2?))$ {
+    alias /usr/share/nginx/html/$asset;
+    expires 7d;
+    add_header Cache-Control "public, max-age=604800, immutable";
+  }
+
+  # --- Serve the SPA under /parse using alias
+  # Map /parse/... -> /usr/share/nginx/html/...
+  # IMPORTANT: fallback includes the prefix so deep links work
+  location ${HOME_DIRECTORY}/ {
+    alias /usr/share/nginx/html/;
+    try_files $uri $uri/ ${HOME_DIRECTORY}/index.html;
+  }
+
+  # --- General limits (tune as needed)
+  client_max_body_size 25m;
 }
