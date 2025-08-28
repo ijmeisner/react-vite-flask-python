@@ -17,7 +17,7 @@ function App() {
   const loggedIn = !!user
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={prefix || '/'}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route
