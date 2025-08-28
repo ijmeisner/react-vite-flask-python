@@ -5,14 +5,23 @@ ARG HOME_DIRECTORY=/parse
 ENV VITE_HOME_DIRECTORY=${HOME_DIRECTORY}
 WORKDIR /app
 
-# Install deps
-COPY package.json ./
-RUN npm install --no-audit --no-fund
+# Install deps (use lockfile for reproducibility)
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
 
-# Build app
+# Copy build configs required by Tailwind/PostCSS and Vite
 COPY index.html ./index.html
 COPY vite.config.ts ./vite.config.ts
+COPY tsconfig.json ./tsconfig.json
+COPY tailwind.config.ts ./tailwind.config.ts
+COPY postcss.config.cjs ./postcss.config.cjs
+
+# App source
 COPY src ./src
+# Optional public assets (if present)
+# COPY public ./public
+
+# Build production assets (Tailwind will run via PostCSS)
 RUN npm run build
 
 FROM nginx:1.27-alpine

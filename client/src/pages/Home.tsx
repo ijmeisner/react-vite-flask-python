@@ -2,6 +2,7 @@ import { useState } from 'react'
 import synitiLogo from '../assets/syniti-logo.svg'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { toast } from '@/hooks/use-toast'
 
 type Props = { apiBase: string }
 
@@ -13,12 +14,18 @@ export default function Home({ apiBase }: Props) {
       setBusy(true)
       const res = await fetch(`${apiBase}/notify`, { credentials: 'include' })
       if (!res.ok) throw new Error('Request failed')
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const data = await res.json()
-      // Simple UX for now; can be replaced by toast component
-      alert('Server responded successfully')
+      const who = (data.user || data.sub || '').toString()
+      toast({
+        title: 'Server response',
+        description: `${data.message}${who ? ` (user: ${who})` : ''}`,
+      })
     } catch (e) {
-      alert('Server test failed')
+      toast({
+        title: 'Server test failed',
+        description: 'Unable to reach the Flask API',
+        variant: 'destructive',
+      })
     } finally {
       setBusy(false)
     }
@@ -35,7 +42,7 @@ export default function Home({ apiBase }: Props) {
         <div className="space-y-4">
           <h1 className="text-4xl font-bold text-foreground">Welcome to Syniti Template</h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            This is a modern React application built with your existing Flask boilerplate structure. The
+            This is a modern React application built with Flask boilerplate structure. The
             application maintains your purple branding while providing a clean, modern interface.
           </p>
         </div>
@@ -87,4 +94,3 @@ export default function Home({ apiBase }: Props) {
     </div>
   )
 }
-

@@ -4,6 +4,7 @@ import Home from './pages/Home'
 import Login from './pages/Login'
 import AdminLogs from './pages/AdminLogs'
 import { useAuth } from '@/context/AuthContext'
+import { Toaster } from '@/components/ui/toaster'
 
 function App() {
   // Compute backend prefixes once
@@ -42,6 +43,7 @@ function App() {
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <Toaster />
     </BrowserRouter>
   )
 }
