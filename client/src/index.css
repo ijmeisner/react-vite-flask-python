@@ -94,7 +94,10 @@
         --popover: 222.2 84% 4.9%;
         --popover-foreground: 210 40% 98%;
 
-        --primary: 210 40% 98%;
+        /* Brand-aligned primary in dark mode */
+        --primary: 268 100% 90%;
+        --primary-hover: 268 80% 70%;
+        --primary-light: 275 100% 15%;
         --primary-foreground: 222.2 47.4% 11.2%;
 
         --secondary: 217.2 32.6% 17.5%;
@@ -120,13 +123,6 @@
         --sidebar-accent-foreground: 240 4.8% 95.9%;
         --sidebar-border: 240 3.7% 15.9%;
         --sidebar-ring: 217.2 91.2% 59.8%;
-
-        /* Dark mode overrides for our custom tokens */
-        --background: 222 84% 5%;
-        --foreground: 210 40% 98%;
-        --primary: 268 100% 90%;
-        --primary-hover: 268 80% 70%;
-        --primary-light: 275 100% 15%;
     }
 }
 
@@ -134,7 +130,6 @@
   .bg-gradient-primary { background: var(--gradient-primary); }
   .bg-gradient-surface { background: var(--gradient-surface); }
   .bg-gradient-hero { background: var(--gradient-hero); }
-  .hover\:bg-primary-hover:hover { background: hsl(var(--primary-hover)); }
 }
 
 @layer base {

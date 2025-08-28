@@ -20,7 +20,7 @@ export default function Login() {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-gradient-to-b from-white to-secondary">
+    <div className="grid min-h-screen place-items-center bg-gradient-to-b from-background to-secondary">
       <div className="rounded-lg border bg-card p-8 shadow-medium">
         <h1 className="mb-2 text-2xl font-semibold">Sign in</h1>
         <p className="mb-6 max-w-md text-sm text-muted-foreground">Please sign in with your Microsoft account to continue.</p>
