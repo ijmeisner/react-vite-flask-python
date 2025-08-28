@@ -1,43 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 
-type User = {
-  name?: string
-  preferred_username?: string
-}
-
-function Login({ apiBase }: { apiBase: string }) {
-  const onLogin = () => {
-    window.location.href = `${apiBase}/login`
-  }
-  return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', padding: 24 }}>
-      <h1>Sign in</h1>
-      <p>Please sign in with your Microsoft account to continue.</p>
-      <button
-        onClick={onLogin}
-        style={{
-          background: '#2563eb',
-          color: 'white',
-          border: 'none',
-          padding: '10px 14px',
-          borderRadius: 8,
-          cursor: 'pointer',
-        }}
-      >
-        Sign in with Microsoft
-      </button>
-    </div>
-  )
-}
-
-function Home({ apiBase, user }: { apiBase: string; user: User }) {
+function Home({ apiBase, prefix }: { apiBase: string, prefix: string }) {
   const [message, setMessage] = useState<string>('Loading...')
   const [toastMsg, setToastMsg] = useState<string>('')
   const [showToast, setShowToast] = useState<boolean>(false)
   const hideTimer = useRef<number | undefined>(undefined)
 
   useEffect(() => {
-    fetch(`${apiBase}/hello`)
+    fetch(`${apiBase}/hello`, { credentials: 'include' })
       .then((res) => (res.ok ? res.json() : Promise.reject(res)))
       .then((data) => setMessage(data.message ?? 'No message'))
       .catch(() => setMessage('API unavailable'))
@@ -45,7 +15,7 @@ function Home({ apiBase, user }: { apiBase: string; user: User }) {
 
   const handleTestClick = async () => {
     try {
-      const res = await fetch(`${apiBase}/notify`)
+      const res = await fetch(`${apiBase}/notify`, { credentials: 'include' })
       if (!res.ok) throw new Error('Request failed')
       const data: { message?: string } = await res.json()
       showToastNow(data.message ?? 'Notification')
@@ -53,10 +23,7 @@ function Home({ apiBase, user }: { apiBase: string; user: User }) {
       showToastNow(`Failed: ${new Date().toLocaleString()}`)
     }
   }
-
-  const onLogout = () => {
-    window.location.href = `${apiBase}/logout`
-  }
+  const onLogout = () => { window.location.href = `${prefix}/logout` }
 
   const showToastNow = (msg: string) => {
     setToastMsg(msg)
@@ -70,7 +37,6 @@ function Home({ apiBase, user }: { apiBase: string; user: User }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Home</h1>
         <div>
-          <span style={{ marginRight: 12 }}>{user.name || user.preferred_username}</span>
           <button onClick={onLogout}>Logout</button>
         </div>
       </div>
@@ -117,32 +83,45 @@ function App() {
   const homeDir = (import.meta.env.VITE_HOME_DIRECTORY as string | undefined) || ''
   const prefix = homeDir === '/' ? '' : (homeDir?.replace(/\/$/, '') || '')
   const apiBase = `${prefix}/api`
-
-  const [authChecked, setAuthChecked] = useState(false)
-  const [user, setUser] = useState<User | null>(null)
-
+  const [loggedIn, setLoggedIn] = useState<boolean | null>(null)
   useEffect(() => {
-    const check = async () => {
-      try {
-        const res = await fetch(`${apiBase}/me`, { credentials: 'include' })
-        if (res.ok) {
-          const data = await res.json()
-          setUser(data.user)
-        } else {
-          setUser(null)
-        }
-      } catch (e) {
-        setUser(null)
-      } finally {
-        setAuthChecked(true)
-      }
-    }
-    check()
+    // Determine session status via a lightweight API call
+    fetch(`${apiBase}/hello`, { credentials: 'include' })
+      .then(res => { setLoggedIn(res.ok) })
+      .catch(() => setLoggedIn(false))
   }, [])
 
-  if (!authChecked) return null
-  if (!user) return <Login apiBase={apiBase} />
-  return <Home apiBase={apiBase} user={user} />
+  if (loggedIn === null) {
+    return (
+      <div style={{ fontFamily: 'system-ui, sans-serif', padding: 24 }}>
+        <p>Loading…</p>
+      </div>
+    )
+  }
+
+  if (!loggedIn) {
+    return (
+      <div style={{ fontFamily: 'system-ui, sans-serif', padding: 24 }}>
+        <h1>Sign in</h1>
+        <p>Please sign in with your Microsoft account to continue.</p>
+        <a
+          href={`${prefix}/azure_login`}
+          style={{
+            display: 'inline-block',
+            background: '#2563eb',
+            color: 'white',
+            textDecoration: 'none',
+            padding: '10px 14px',
+            borderRadius: 8,
+          }}
+        >
+          Sign in with Microsoft
+        </a>
+      </div>
+    )
+  }
+
+  return <Home apiBase={apiBase} prefix={prefix} />
 }
 
 export default App

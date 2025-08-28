@@ -1,34 +1,41 @@
 # react-vite-flask-python
 
-## Azure AD BFF Authentication
+## Authentication
 
-This project now includes a Backend-for-Frontend (BFF) flow with Azure AD (Entra ID). The browser only talks to the Flask backend; tokens are never exposed to the client. The backend manages redirects to Azure, handles the callback, stores identity in an HttpOnly session cookie, and exposes a minimal `GET ${HOME_DIRECTORY}/api/me` endpoint for the SPA to detect authentication.
+The app uses server-side authentication via MSAL for Python. Users authenticate with Azure AD through the Flask backend; sessions are stored in secure cookies. The React client is MSAL-free and relies on the backend session.
 
 ### Configure Azure App Registration
-- Create an app registration in Entra ID.
-- Add a client secret.
-- Add a redirect URI: `https://<your-domain>${HOME_DIRECTORY}/api/auth/callback`
-  - For local reverse-proxy, this should match your public host and prefix.
+- Create an app registration in Entra ID and add a client secret.
+- Register a redirect URI that matches your deployment, e.g.: `https://<your-domain>${HOME_DIRECTORY}/authorized`
+  - You can override the path via `AZURE_REDIRECT_PATH` (must be registered in Azure).
 
 ### Environment variables (server)
-- `AZURE_CLIENT_ID` – App registration client ID
-- `AZURE_TENANT_ID` – Directory (tenant) ID
-- `AZURE_CLIENT_SECRET` – Client secret value
-- `FLASK_SECRET_KEY` – Any random string for session integrity
-- `HOME_DIRECTORY` – URL base prefix, e.g. `/parse` (optional)
-- `SESSION_COOKIE_SECURE` – `true` in HTTPS; `false` in local HTTP
-- `SESSION_COOKIE_SAMESITE` – `Lax` (default) or `None` when cross-site is required
+- `AZURE_CLIENT_ID` – App registration client ID.
+- `AZURE_TENANT_ID` – Directory (tenant) ID.
+- `AZURE_CLIENT_SECRET` – Client secret value.
+- `AZURE_AUTH_SCOPES` – Space-separated delegated scopes to request (e.g., `https://graph.microsoft.com/User.Read`).
+- `AZURE_REDIRECT_PATH` – Path part of redirect URI; defaults to `${HOME_DIRECTORY}/authorized`.
+- `AZURE_ALLOWED_AUDIENCE` – Space-separated accepted audiences for Bearer tokens (optional). Falls back to `AZURE_CLIENT_ID`.
+- `AZURE_JWKS_TTL` – Seconds to cache JWKS/OpenID config (default 300).
+- `FLASK_SECRET_KEY` – Secret for Flask session cookies.
+- `HOME_DIRECTORY` – URL base prefix, e.g., `/parse` (optional).
+- `SESSION_COOKIE_SECURE` – `true` for HTTPS; `false` for local HTTP.
+- `SESSION_COOKIE_SAMESITE` – `Lax` (default) or `None` if cross-site is required.
 
 ### Client build env
 - `VITE_HOME_DIRECTORY` – Should match `HOME_DIRECTORY` so routes align.
 
-### Endpoints
-- `GET ${HOME_DIRECTORY}/api/login` – Redirects to Azure AD
-- `GET ${HOME_DIRECTORY}/api/auth/callback` – Completes sign-in, sets session, redirects to SPA
-- `GET ${HOME_DIRECTORY}/api/me` – Returns `{ user }` or `401`
-- `GET ${HOME_DIRECTORY}/api/logout` – Clears session (and optionally Azure session)
+### Routes (mounted under `${HOME_DIRECTORY}`)
+- `GET ${HOME_DIRECTORY}/azure_login` – Starts the Azure sign-in flow (triggered from the React UI).
+- `GET ${HOME_DIRECTORY}/authorized` – OAuth2 redirect/callback.
+- `GET ${HOME_DIRECTORY}/logout` – Clears the session and returns to the SPA.
 
-The SPA shows a login page with a “Sign in with Microsoft” button and gates the home page unless authenticated.
+### API Endpoints
+- `GET ${HOME_DIRECTORY}/api/health` – Public health endpoint.
+- `GET ${HOME_DIRECTORY}/api/hello` – Works with backend session or `Authorization: Bearer <token>`.
+- `GET ${HOME_DIRECTORY}/api/notify` – Works with backend session or `Authorization: Bearer <token>`.
+
+The React UI shows a sign-in screen if not authenticated and links to `${HOME_DIRECTORY}/azure_login`. Nginx proxies the backend auth endpoints (`azure_login`, `authorized`, `logout`) to the Flask server; all other non-API routes are served by the SPA.
 
 ## Build and Push Docker Images
 
