@@ -1,51 +1,80 @@
-import { useEffect, useState } from 'react'
+import { useMemo } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
 import Home from './pages/Home'
+import Login from './pages/Login'
+import AdminLogs from './pages/AdminLogs'
+import { useAuth } from '@/context/AuthContext'
 
 function App() {
-  // Use HOME_DIRECTORY from Vite env to prefix routes (e.g., '/parse')
-  const homeDir = (import.meta.env.VITE_HOME_DIRECTORY as string | undefined) || ''
-  const prefix = homeDir === '/' ? '' : (homeDir?.replace(/\/$/, '') || '')
-  const apiBase = `${prefix}/api`
-  const [loggedIn, setLoggedIn] = useState<boolean | null>(null)
-  useEffect(() => {
-    // Determine session status via a lightweight API call
-    fetch(`${apiBase}/hello`, { credentials: 'include' })
-      .then(res => { setLoggedIn(res.ok) })
-      .catch(() => setLoggedIn(false))
+  // Compute backend prefixes once
+  const { prefix, apiBase } = useMemo(() => {
+    const homeDir = (import.meta.env.VITE_HOME_DIRECTORY as string | undefined) || ''
+    const p = homeDir === '/' ? '' : (homeDir?.replace(/\/$/, '') || '')
+    return { prefix: p, apiBase: `${p}/api` }
   }, [])
 
-  if (loggedIn === null) {
+  const { user, loading } = useAuth()
+  const loggedIn = !!user
+
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/"
+          element={
+            <RequireAuth loading={loading} loggedIn={loggedIn}>
+              <ProtectedLayout prefix={prefix}>
+                <Home apiBase={apiBase} />
+              </ProtectedLayout>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/logs"
+          element={
+            <RequireAuth loading={loading} loggedIn={loggedIn}>
+              <ProtectedLayout prefix={prefix}>
+                <AdminLogs apiBase={apiBase} />
+              </ProtectedLayout>
+            </RequireAuth>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}
+
+function RequireAuth({ children, loading, loggedIn }: { children: React.ReactNode, loading: boolean, loggedIn: boolean }) {
+  const location = useLocation()
+  if (loading) {
     return (
       <div className="grid min-h-screen place-items-center bg-background text-foreground">
         <p className="text-sm text-muted-foreground">Loading…</p>
       </div>
     )
   }
-
   if (!loggedIn) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-gradient-to-b from-white to-secondary">
-        <div className="rounded-lg border bg-card p-8 shadow-medium">
-          <h1 className="mb-2 text-2xl font-semibold">Sign in</h1>
-          <p className="mb-6 max-w-md text-sm text-muted-foreground">Please sign in with your Microsoft account to continue.</p>
-          <a href={`${prefix}/azure_login`} className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-primary-foreground shadow-soft transition hover:bg-primary-hover">
-            Sign in with Microsoft
-          </a>
-        </div>
-      </div>
-    )
+    return <Navigate to="/login" replace state={{ from: location }} />
   }
+  return <>{children}</>
+}
 
+function ProtectedLayout({ children, prefix }: { children: React.ReactNode, prefix: string }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-40 w-full border-b bg-white/80 backdrop-blur">
         <div className="container flex h-16 items-center justify-between">
-          <h1 className="text-xl font-semibold">Syniti Template</h1>
+          <nav className="flex items-center gap-4">
+            <Link to="/" className="text-xl font-semibold">Syniti Template</Link>
+            <Link to="/logs" className="text-sm text-muted-foreground hover:text-foreground">Logs</Link>
+          </nav>
           <a href={`${prefix}/logout`} className="rounded-md bg-primary px-4 py-2 text-primary-foreground shadow-soft hover:bg-primary-hover">Logout</a>
         </div>
       </header>
       <main className="container py-8">
-        <Home apiBase={apiBase} />
+        {children}
       </main>
     </div>
   )
